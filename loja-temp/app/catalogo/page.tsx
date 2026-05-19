@@ -31,7 +31,13 @@ export default function PaginaCatalogo() {
       {/* Grid de 3 colunas no desktop, 2 no tablet, 1 no mobile */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {produtosCatalogo.map((produto) => (
-          <CardProduto key={produto.id} produto={produto} />
+          <CardProduto 
+            key={produto.id} 
+            produto={{
+              ...produto,
+              estoque: 10,
+            }} 
+          />
         ))}
       </div>
     </div>

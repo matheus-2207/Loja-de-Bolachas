@@ -66,7 +66,14 @@ export default async function PaginaCatalogo({
       <section aria-label="Lista de produtos">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {todosProdutos.map((produto) => (
-            <CardProduto key={produto.id} produto={{ ...produto, preco: produto.preco.toNumber() }} />
+            <CardProduto 
+              key={produto.id} 
+              produto={{ 
+                ...produto, 
+                preco: produto.preco.toNumber(),
+                estoque: produto.estoque 
+              }} 
+            />
           ))}
         </div>
       </section>
