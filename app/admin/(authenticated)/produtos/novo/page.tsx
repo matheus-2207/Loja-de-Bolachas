@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import fs from 'fs'
-import path from 'path'
 import Link from 'next/link'
+import { uploadImagem } from '@/lib/upload'
 
 export default function NovoProdutoPage() {
   async function criarProduto(formData: FormData) {
@@ -18,23 +17,8 @@ export default function NovoProdutoPage() {
     // Tratamento simples do preço
     const preco = parseFloat(precoStr.replace(',', '.'))
     
-    let imagemUrl = null
-
-    // Upload de arquivo local (para simplificar como discutido)
-    if (foto && foto.size > 0) {
-      const buffer = Buffer.from(await foto.arrayBuffer())
-      const filename = `${Date.now()}-${foto.name.replace(/[^a-zA-Z0-9.-]/g, '')}`
-      
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-      // Criar o diretório se não existir
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true })
-      }
-      
-      const filepath = path.join(uploadDir, filename)
-      fs.writeFileSync(filepath, buffer)
-      imagemUrl = `/uploads/${filename}`
-    }
+    // Executa o upload utilizando o utilitário unificado (Cloudinary ou local)
+    const imagemUrl = await uploadImagem(foto)
 
     await prisma.produto.create({
       data: {

@@ -1,10 +1,9 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import fs from 'fs'
-import path from 'path'
 import Link from 'next/link'
 import { GerenciadorFoto } from './GerenciadorFoto'
+import { uploadImagem } from '@/lib/upload'
 
 export default async function EditarProdutoPage({ params }: { params: { id: string } }) {
   const produto = await prisma.produto.findUnique({
@@ -36,19 +35,12 @@ export default async function EditarProdutoPage({ params }: { params: { id: stri
       imagemUrl = null
     }
 
-    // Upload de novo arquivo local se fornecido
+    // Upload de novo arquivo se fornecido (usando utilitário Cloudinary/Local)
     if (foto && foto.size > 0) {
-      const buffer = Buffer.from(await foto.arrayBuffer())
-      const filename = `${Date.now()}-${foto.name.replace(/[^a-zA-Z0-9.-]/g, '')}`
-      
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true })
+      const novaImagemUrl = await uploadImagem(foto)
+      if (novaImagemUrl) {
+        imagemUrl = novaImagemUrl
       }
-      
-      const filepath = path.join(uploadDir, filename)
-      fs.writeFileSync(filepath, buffer)
-      imagemUrl = `/uploads/${filename}`
     }
 
     await prisma.produto.update({
