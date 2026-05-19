@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import fs from 'fs'
 import path from 'path'
 import Link from 'next/link'
+import { GerenciadorFoto } from './GerenciadorFoto'
 
 export default async function EditarProdutoPage({ params }: { params: { id: string } }) {
   const produto = await prisma.produto.findUnique({
@@ -29,6 +30,11 @@ export default async function EditarProdutoPage({ params }: { params: { id: stri
     const estoque = parseInt(estoqueStr, 10)
     
     let imagemUrl = produto?.imagem
+    const removerFoto = formData.get('removerFoto') === 'true'
+
+    if (removerFoto) {
+      imagemUrl = null
+    }
 
     // Upload de novo arquivo local se fornecido
     if (foto && foto.size > 0) {
@@ -53,7 +59,7 @@ export default async function EditarProdutoPage({ params }: { params: { id: stri
         preco,
         categoria,
         estoque,
-        ...(imagemUrl !== produto?.imagem && { imagem: imagemUrl })
+        imagem: imagemUrl
       }
     })
 
@@ -101,14 +107,8 @@ export default async function EditarProdutoPage({ params }: { params: { id: stri
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nova Foto (opcional)</label>
-              {produto.imagem && (
-                <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-1">Foto atual:</p>
-                  <img src={produto.imagem} alt="Atual" className="h-20 w-20 object-cover rounded border" />
-                </div>
-              )}
-              <input type="file" name="foto" accept="image/*" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-biscoito-500 outline-none text-sm text-gray-500" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Produto</label>
+              <GerenciadorFoto fotoAtual={produto.imagem} />
             </div>
           </div>
 
