@@ -1,3 +1,6 @@
+<img width="1917" height="937" alt="image" src="https://github.com/user-attachments/assets/59a71c62-72da-4221-82b4-3e6388dceaa4" />
+<img width="1898" height="945" alt="image" src="https://github.com/user-attachments/assets/9bbe9124-d2da-4c48-a728-a3a239788398" />
+
 # E-commerce de Bolachas Artesanais 🍪
 
 Uma plataforma de comércio eletrônico moderna desenvolvida majoritariamente em **TypeScript** e integrada com um **LLM Smart Gateway** para oferecer um assistente virtual inteligente capaz de tirar dúvidas, sugerir sabores e auxiliar os clientes na escolha dos produtos artesanais.
