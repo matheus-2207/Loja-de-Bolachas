@@ -1,143 +1,153 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { CardProduto } from '@/components/card-produto'
-import { prisma } from '@/lib/prisma'
-
+import type { Metadata } from "next";
+import Link from "next/link";
+import Image from "next/image";
+import { CardProduto } from "@/components/card-produto";
+import { CatalogEmpty } from "@/components/catalog-empty";
+import { Hero } from "@/components/hero";
+import { Reveal } from "@/components/reveal";
+import { Icon } from "@/components/icon";
+import { getCatalog } from "@/lib/catalog";
+import { WHATSAPP_URL } from "@/lib/store";
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: 'Bolachas Artesanais em Curitiba — Loja da Madrinha',
-  description: 'Descubra nossas bolachas artesanais feitas com amor. Peça online e receba fresquinhas!',
-}
-
+  title: "Bolachas artesanais em Curitiba — Loja da Madrinha",
+  description:
+    "Um pequeno ritual. Muito sabor. Conheça as bolachas artesanais da Madrinha e escolha sua seleção.",
+};
 export default async function PaginaHome() {
-  const produtosDestaque = await prisma.produto.findMany({
-    where: { ativo: true },
-    orderBy: { createdAt: 'desc' },
-    take: 4
-  })
-
+  const { products, unavailable } = await getCatalog();
   return (
     <>
-      {/* ===================== HERO ===================== */}
-      <section
-        id="hero"
-        className="relative overflow-hidden bg-gradient-to-br from-biscoito-50 via-creme-100 to-biscoito-100 py-20 md:py-28"
-        aria-labelledby="titulo-hero"
-      >
-        {/* Decoração de fundo */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-          <span className="absolute top-10 left-10 text-8xl opacity-10 rotate-12">🍪</span>
-          <span className="absolute bottom-10 right-10 text-9xl opacity-10 -rotate-12">🍪</span>
-          <span className="absolute top-1/2 left-1/4 text-6xl opacity-5 rotate-45">🍪</span>
-        </div>
-
-        <div className="container-pagina relative z-10 text-center">
-          <span className="inline-block bg-biscoito-100 text-biscoito-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-6">
-            🇧🇷 Feitas com amor em Curitiba
-          </span>
-
-          <h1
-            id="titulo-hero"
-            className="font-display font-bold text-4xl md:text-6xl text-biscoito-900 mb-6 leading-tight"
-          >
-            Bolachas artesanais{' '}
-            <span className="text-biscoito-500">da Madrinha</span> 🍪
-          </h1>
-
-          <p className="text-lg md:text-xl text-biscoito-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Receitas tradicionais, ingredientes selecionados e muito carinho em cada fornada.
-            Entregamos em toda Curitiba!
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/catalogo" id="btn-ver-catalogo" className="btn-primario text-base px-8 py-4">
-              Ver Catálogo Completo
-            </Link>
-            <Link href="#destaques" id="btn-ver-destaques" className="btn-secundario text-base px-8 py-4">
-              Ver Destaques
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== DIFERENCIAIS ===================== */}
-      <section id="diferenciais" className="py-16 bg-white" aria-labelledby="titulo-diferenciais">
-        <div className="container-pagina">
-          <h2 id="titulo-diferenciais" className="sr-only">Nossos diferenciais</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { emoji: '🌾', titulo: 'Ingredientes naturais', texto: 'Sem conservantes ou corantes artificiais' },
-              { emoji: '🏡', titulo: 'Feitas em casa', texto: 'Receitas tradicionais de família' },
-              { emoji: '🚚', titulo: 'Entrega em Curitiba', texto: 'Frete calculado pelo seu CEP' },
-              { emoji: '💳', titulo: 'PIX ou cartão', texto: 'Pagamento seguro via Mercado Pago' },
-            ].map((item) => (
-              <div
-                key={item.titulo}
-                className="flex flex-col items-center text-center p-6 rounded-2xl bg-biscoito-50 hover:bg-biscoito-100 transition-colors duration-200"
-              >
-                <span className="text-4xl mb-3" aria-hidden="true">{item.emoji}</span>
-                <h3 className="font-semibold text-biscoito-800 mb-1">{item.titulo}</h3>
-                <p className="text-sm text-biscoito-500">{item.texto}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== PRODUTOS EM DESTAQUE ===================== */}
-      <section id="destaques" className="py-16" aria-labelledby="titulo-destaques">
-        <div className="container-pagina">
-          <div className="flex items-center justify-between mb-8">
+      <Hero />
+      <div className="promise-strip">
+        <span>
+          <Icon name="leaf" /> O cuidado de fazer à mão
+        </span>
+        <span>
+          <Icon name="gift" /> Para você ou para presentear
+        </span>
+        <span>
+          <Icon name="chat" /> Atendimento próximo, de verdade
+        </span>
+      </div>
+      <section id="selecao" className="section-space container-pagina">
+        <Reveal>
+          <div className="section-heading">
             <div>
-              <h2 id="titulo-destaques" className="font-display font-bold text-3xl text-biscoito-900">
-                Destaques da semana
+              <h2>
+                Qual vai ser
+                <br />
+                <em>a sua pausa?</em>
               </h2>
-              <p className="text-biscoito-500 mt-1">Os queridinhos das nossas clientes</p>
+              <p>Escolha um sabor. Encontre um novo favorito.</p>
             </div>
-            <Link href="/catalogo" className="btn-secundario hidden sm:inline-flex py-2 px-5 text-sm">
-              Ver todos →
+            <Link href="/catalogo" className="text-link">
+              Conhecer todas <Icon name="arrow" />
             </Link>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {produtosDestaque.map((produto) => (
-              <CardProduto key={produto.id} produto={{ ...produto, preco: produto.preco.toNumber() }} />
+        </Reveal>
+        {products.length ? (
+          <div className="product-grid editorial-grid">
+            {products.slice(0, 3).map((p) => (
+              <Reveal key={p.id}>
+                <CardProduto produto={p} />
+              </Reveal>
             ))}
           </div>
-
-          <div className="mt-8 text-center sm:hidden">
-            <Link href="/catalogo" className="btn-secundario">
-              Ver catálogo completo →
-            </Link>
-          </div>
+        ) : (
+          <CatalogEmpty unavailable={unavailable} />
+        )}
+      </section>
+      <section id="historia" className="story-section">
+        <div className="container-pagina story-grid">
+          <Reveal className="story-photo">
+            <Image
+              src="/uploads/1779220847500-Bolachas.jpg"
+              alt="Bolachas de chocolate da Madrinha, com detalhes moldados artesanalmente"
+              fill
+              sizes="(max-width: 760px) 100vw, 50vw"
+            />
+            <span>Da nossa cozinha, com carinho.</span>
+          </Reveal>
+          <Reveal className="story-copy">
+            <h2>
+              Tem coisas que
+              <br />a gente sente
+              <br />
+              <em>no primeiro pedaço.</em>
+            </h2>
+            <p>
+              A textura, o desenho, o cuidado em cada detalhe. Nossas bolachas
+              carregam o encanto das coisas feitas à mão.
+            </p>
+            <p>
+              Na Madrinha, a mesa é um convite: para uma pausa no dia, uma
+              conversa boa ou um presente cheio de significado.
+            </p>
+            <a
+              className="text-link"
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Vamos conversar? <Icon name="arrow" />
+            </a>
+          </Reveal>
         </div>
       </section>
-
-      {/* ===================== CTA FINAL ===================== */}
-      <section
-        id="cta-final"
-        className="py-16 bg-gradient-to-br from-biscoito-500 to-biscoito-700 text-white"
-        aria-labelledby="titulo-cta"
-      >
-        <div className="container-pagina text-center">
-          <h2 id="titulo-cta" className="font-display font-bold text-3xl md:text-4xl mb-4">
-            Quer fazer uma encomenda especial? 🎁
-          </h2>
-          <p className="text-biscoito-100 text-lg max-w-xl mx-auto mb-8">
-            Bolachas decoradas para aniversários, casamentos e eventos. Entre em contato!
-          </p>
-          <a
-            href="https://wa.me/5541999999999"
-            id="btn-whatsapp-cta"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 bg-white text-biscoito-700 font-bold px-8 py-4 rounded-xl
-                       hover:bg-biscoito-50 transition-all duration-200 hover:-translate-y-1 shadow-lg hover:shadow-xl"
-          >
-            <span className="text-xl" aria-hidden="true">💬</span>
-            Falar no WhatsApp
-          </a>
+      <section className="selection-section container-pagina">
+        <Reveal>
+          <div className="selection-layout">
+            <div className="selection-symbol">
+              <Icon name="gift" width="64" height="64" />
+            </div>
+            <h2>
+              Do seu jeito.
+              <br />
+              <em>Com o nosso carinho.</em>
+            </h2>
+            <div>
+              <p>
+                Junte seus favoritos em uma seleção especial. Para dividir,
+                presentear ou guardar aquele momento só para você.
+              </p>
+              <Link href="/monte-sua-caixa" className="btn-primario">
+                Montar minha seleção <Icon name="arrow" />
+              </Link>
+              <span className="small-note">
+                Embalagens especiais? Combine com a Madrinha.
+              </span>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+      <section className="home-questions container-pagina">
+        <h2>Antes da primeira mordida.</h2>
+        <div>
+          <details>
+            <summary>Como faço meu pedido?</summary>
+            <p>
+              Escolha suas bolachas, confira a cesta e preencha os dados de
+              entrega. Depois de registrar o pedido, você continua no WhatsApp
+              para combinar o pagamento e os detalhes finais.
+            </p>
+          </details>
+          <details>
+            <summary>Como funciona a entrega?</summary>
+            <p>
+              A loja fica em Curitiba. Consulte o frete pelo CEP na cesta e
+              confirme a disponibilidade e o prazo com a Madrinha pelo WhatsApp.
+            </p>
+          </details>
+          <details>
+            <summary>Posso fazer uma encomenda especial?</summary>
+            <p>
+              Sim. Para presentes, eventos e embalagens especiais, converse com
+              a Madrinha para confirmar formatos, prazos e valores.
+            </p>
+          </details>
         </div>
       </section>
     </>
-  )
+  );
 }

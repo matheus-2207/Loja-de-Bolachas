@@ -1,71 +1,44 @@
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { WHATSAPP_URL } from "@/lib/store";
+import { Icon } from "@/components/icon";
 export function Footer() {
-  const pathname = usePathname()
-  const anoAtual = new Date().getFullYear()
-
-  if (pathname.startsWith('/admin')) {
-    return null
-  }
-
+  const pathname = usePathname();
+  if (pathname.startsWith("/admin")) return null;
   return (
-    <footer className="bg-biscoito-900 text-biscoito-100 mt-auto">
-      <div className="container-pagina py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-          {/* Coluna 1: Identidade */}
+    <footer className="site-footer">
+      <div className="container-pagina">
+        <div className="footer-top">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-2xl" aria-hidden="true">🍪</span>
-              <span className="font-display font-bold text-lg text-white">Loja da Madrinha</span>
-            </div>
-            <p className="text-sm text-biscoito-300 leading-relaxed">
-              Bolachas artesanais feitas com carinho em Curitiba, PR.
-              Ingredientes selecionados, sabor de casa.
+            <Link href="/" className="footer-wordmark">
+              Madrinha.
+            </Link>
+            <p>
+              Pequenos momentos.
+              <br />
+              Boas lembranças à mesa.
             </p>
           </div>
-
-          {/* Coluna 2: Navegação rápida */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 font-display">Navegação</h3>
-            <ul className="space-y-2 text-sm text-biscoito-300">
-              <li><Link href="/" className="hover:text-white transition-colors">Início</Link></li>
-              <li><Link href="/catalogo" className="hover:text-white transition-colors">Catálogo</Link></li>
-              <li><Link href="/carrinho" className="hover:text-white transition-colors">Carrinho</Link></li>
-              <li><Link href="/checkout" className="hover:text-white transition-colors">Checkout</Link></li>
-            </ul>
-          </div>
-
-          {/* Coluna 3: Contato */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 font-display">Contato</h3>
-            <ul className="space-y-2 text-sm text-biscoito-300">
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">📍</span> Curitiba, Paraná
-              </li>
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">📱</span> WhatsApp: (41) 99999-9999
-              </li>
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">📸</span>
-                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
-                   className="hover:text-white transition-colors">
-                  @lojadamadrinha
-                </a>
-              </li>
-            </ul>
+          <nav aria-label="Links do rodapé">
+            <Link href="/catalogo">Nossas bolachas</Link>
+            <Link href="/monte-sua-caixa">Monte sua seleção</Link>
+            <Link href="/carrinho">Sua cesta</Link>
+          </nav>
+          <div className="footer-contact">
+            <p>De Curitiba, com carinho.</p>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+              Converse com a Madrinha <Icon name="arrow" />
+            </a>
+            <span>(41) 99655-0283</span>
           </div>
         </div>
-
-        {/* Linha inferior */}
-        <div className="mt-10 pt-6 border-t border-biscoito-700 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-biscoito-400">
-          <p>© {anoAtual} Loja da Madrinha. Todos os direitos reservados.</p>
-          <p>Feito com ❤️ e muito açúcar em Curitiba</p>
+        <div className="footer-bottom">
+          <span>© {new Date().getFullYear()} Loja da Madrinha</span>
+          <span>Bolachas artesanais · Curitiba, PR</span>
+          <a href="#conteudo">Voltar ao início ↑</a>
         </div>
       </div>
     </footer>
-  )
+  );
 }

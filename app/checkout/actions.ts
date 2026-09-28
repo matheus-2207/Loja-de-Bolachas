@@ -1,90 +1,102 @@
-'use server'
-
-import { prisma } from '@/lib/prisma'
-
-export interface CriarPedidoInput {
-  nomeCliente: string
-  emailCliente: string
-  telefone: string
-  cep: string
-  logradouro: string
-  numero: string
-  complemento?: string
-  bairro: string
-  itens: {
-    produtoId: string
-    quantidade: number
-    preco: number
-  }[]
-  frete: number
-  total: number
-}
-
+"use server";
+import { prisma } from "@/lib/prisma";
+import {
+  OrderError,
+  validateOrderInput,
+  validateOrderPrices,
+  type OrderInput,
+} from "@/lib/order-validation";
+export type CriarPedidoInput = OrderInput;
 export async function criarPedido(dados: CriarPedidoInput) {
   try {
-    const logradouroCompleto = `${dados.logradouro}, ${dados.numero}${dados.complemento ? ' - ' + dados.complemento : ''}`
-
-    // Criar o pedido e seus itens associados em uma transação do Prisma
-    const pedido = await prisma.$transaction(async (tx) => {
-      // Gerar número sequencial para o ID do pedido
-      let proximoNumero = 1
-      const ultimoPedido = await tx.pedido.findFirst({
-        orderBy: {
-          createdAt: 'desc',
-        },
-      })
-
-      if (ultimoPedido && ultimoPedido.id.startsWith('LM-')) {
-        const match = ultimoPedido.id.match(/LM-(\d+)/)
-        if (match) {
-          const ultimoNumero = parseInt(match[1], 10)
-          proximoNumero = ultimoNumero + 1
-        }
-      }
-
-      const idSequencial = `LM-${String(proximoNumero).padStart(5, '0')}`
-
-      // 1. Criar o pedido
-      const novoPedido = await tx.pedido.create({
-        data: {
-          id: idSequencial,
-          nomeCliente: dados.nomeCliente,
-          emailCliente: dados.emailCliente,
-          telefone: dados.telefone,
-          cep: dados.cep,
-          logradouro: logradouroCompleto,
-          bairro: dados.bairro,
-          frete: dados.frete,
-          total: dados.total,
-          status: 'PENDENTE',
-          itens: {
-            create: dados.itens.map((item) => ({
-              produtoId: item.produtoId,
-              quantidade: item.quantidade,
-              preco: item.preco,
-            })),
-          },
-        },
-      })
-
-      // 2. Decrementar o estoque dos produtos
-      for (const item of dados.itens) {
-        await tx.produto.update({
-          where: { id: item.produtoId },
-          data: {
-            estoque: {
-              decrement: item.quantidade,
-            },
-          },
-        })
-      }
-
-      return novoPedido
-    })
-
-    return { success: true, pedidoId: pedido.id }
-  } catch (error: any) {
-    console.error('Erro ao criar pedido:', error)
-    return { success: false, error: error.message || 'Erro interno ao salvar o pedido' }
+    validateOrderInput(dados);
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof OrderError
+          ? error.message
+          : "Confira os dados do pedido.",
+    };
   }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const pedido = await prisma.$transaction(
+        async (tx) => {
+          const products = await tx.produto.findMany({
+            where: { id: { in: dados.itens.map((p) => p.produtoId) } },
+          });
+          const { frete, total } = validateOrderPrices(
+            dados,
+            products.map((p) => ({ ...p, preco: Number(p.preco) })),
+          );
+          const latest = await tx.pedido.findFirst({
+            where: { id: { startsWith: "LM-" } },
+            orderBy: { createdAt: "desc" },
+          });
+          const match = latest?.id.match(/^LM-(\d+)$/);
+          const id = `LM-${String(match ? Number(match[1]) + 1 : 1).padStart(5, "0")}`;
+          for (const item of dados.itens) {
+            const result = await tx.produto.updateMany({
+              where: {
+                id: item.produtoId,
+                ativo: true,
+                estoque: { gte: item.quantidade },
+              },
+              data: { estoque: { decrement: item.quantidade } },
+            });
+            if (result.count !== 1)
+              throw new OrderError(
+                "O estoque mudou durante a compra. Revise sua cesta e tente novamente.",
+              );
+          }
+          return tx.pedido.create({
+            data: {
+              id,
+              nomeCliente: dados.nomeCliente.trim(),
+              emailCliente: dados.emailCliente.trim(),
+              telefone: dados.telefone.trim(),
+              cep: dados.cep.replace(/\D/g, ""),
+              logradouro: `${dados.logradouro.trim()}, ${dados.numero.trim()}${dados.complemento?.trim() ? " - " + dados.complemento.trim() : ""}`,
+              bairro: dados.bairro.trim(),
+              frete,
+              total,
+              status: "PENDENTE",
+              itens: {
+                create: dados.itens.map((item) => ({
+                  produtoId: item.produtoId,
+                  quantidade: item.quantidade,
+                  preco: products.find((p) => p.id === item.produtoId)!.preco,
+                })),
+              },
+            },
+          });
+        },
+        { isolationLevel: "Serializable" },
+      );
+      return { success: true, pedidoId: pedido.id };
+    } catch (error) {
+      if (error instanceof OrderError)
+        return { success: false, error: error.message };
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? error.code
+          : undefined;
+      if ((code === "P2034" || code === "P2002") && attempt < 2) continue;
+      console.error(
+        "Não foi possível registrar o pedido.",
+        code || "conexão indisponível",
+      );
+      return {
+        success: false,
+        error:
+          "Não foi possível confirmar o registro. Sua cesta foi mantida. Consulte a loja antes de tentar novamente.",
+      };
+    }
+  }
+  return {
+    success: false,
+    error:
+      "A loja está recebendo outros pedidos. Tente novamente em instantes.",
+  };
 }

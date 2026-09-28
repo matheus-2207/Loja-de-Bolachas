@@ -29,3 +29,7 @@ Thumbs.db
 
 # Prisma
 prisma/dev.db
+
+# Prévia e verificação isoladas
+.next-preview/
+.next-verify/

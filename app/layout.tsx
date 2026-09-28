@@ -1,38 +1,47 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import { Header } from '@/components/header'
-import { Footer } from '@/components/footer'
-import { CartProvider } from '@/context/CartContext'
+import type { Metadata } from "next";
+import "./globals.css";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
+import { CartProvider } from "@/context/CartContext";
 
 export const metadata: Metadata = {
   title: {
-    default: 'Loja da Madrinha 🍪 — Bolachas Artesanais em Curitiba',
-    template: '%s | Loja da Madrinha',
+    default: "Loja da Madrinha — Bolachas Artesanais em Curitiba",
+    template: "%s | Loja da Madrinha",
   },
   description:
-    'Bolachas artesanais feitas com amor em Curitiba. Peça online e receba fresquinhas na sua porta!',
-  keywords: ['bolachas artesanais', 'biscoitos', 'curitiba', 'encomenda', 'presente'],
+    "Bolachas artesanais feitas com amor em Curitiba. Peça online e receba fresquinhas na sua porta!",
+  keywords: [
+    "bolachas artesanais",
+    "biscoitos",
+    "curitiba",
+    "encomenda",
+    "presente",
+  ],
   openGraph: {
-    type: 'website',
-    locale: 'pt_BR',
-    siteName: 'Loja da Madrinha',
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Loja da Madrinha",
   },
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="pt-BR">
       <body className="min-h-screen flex flex-col">
+        <a href="#conteudo" className="skip-link">
+          Pular para o conteúdo
+        </a>
         <CartProvider>
           {/* Cabeçalho global com navegação */}
           <Header />
 
           {/* Conteúdo principal da página */}
-          <main className="flex-1 fade-in">
+          <main id="conteudo" tabIndex={-1} className="flex-1">
             {children}
           </main>
 
@@ -41,5 +50,5 @@ export default function RootLayout({
         </CartProvider>
       </body>
     </html>
-  )
+  );
 }

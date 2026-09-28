@@ -1,377 +1,389 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useCart } from '@/context/CartContext'
-import { criarPedido } from './actions'
-
-function formatarPreco(valor: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
+"use client";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useCart } from "@/context/CartContext";
+import { criarPedido } from "./actions";
+import { Icon } from "@/components/icon";
+import { money, WHATSAPP_URL } from "@/lib/store";
+import { useShipping, formatCep } from "@/lib/use-shipping";
+interface Delivery {
+  nome: string;
+  email: string;
+  telefone: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
 }
-
+const initial: Delivery = {
+  nome: "",
+  email: "",
+  telefone: "",
+  cep: "",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+  bairro: "",
+};
 export default function PaginaCheckout() {
-  const { items, valorTotal, totalItens, limparCarrinho } = useCart()
-
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [telefone, setTelefone] = useState('')
-  const [cep, setCep] = useState('')
-  const [logradouro, setLogradouro] = useState('')
-  const [numero, setNumero] = useState('')
-  const [complemento, setComplemento] = useState('')
-  const [bairro, setBairro] = useState('')
-  const [loadingCep, setLoadingCep] = useState(false)
-  const [frete, setFrete] = useState<number | null>(null)
-  const [metodoPagamento, setMetodoPagamento] = useState('pix')
-  const [submitting, setSubmitting] = useState(false)
-
-  // Carregar CEP salvo no localStorage ao montar a página
+  const { items, isLoaded, valorTotal, totalItens, limparCarrinho } = useCart();
+  const [data, setData] = useState<Delivery>(initial);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState<{ id: string; url: string } | null>(
+    null,
+  );
+  const lock = useRef(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const successRef = useRef<HTMLHeadingElement>(null);
+  const shipping = useShipping(data.cep);
   useEffect(() => {
-    const savedCep = localStorage.getItem('@LojaMadrinha:cep')
-    if (savedCep) {
-      setCep(savedCep)
-    }
-  }, [])
-
-  useEffect(() => {
-    const cepLimpo = cep.replace(/\D/g, '')
-    if (cepLimpo.length === 8) {
-      setLoadingCep(true)
-      fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-        .then(res => res.json())
-        .then(data => {
-          if (!data.erro) {
-            setLogradouro(data.logradouro || '')
-            setBairro(data.bairro || '')
-            if (cepLimpo.startsWith('8')) {
-              setFrete(8.00)
-            } else {
-              setFrete(15.00)
-            }
-          } else {
-            setFrete(null)
-          }
-        })
-        .catch(() => {
-          setFrete(null)
-        })
-        .finally(() => setLoadingCep(false))
-    } else {
-      setFrete(null)
-    }
-  }, [cep])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!nome || !email || !telefone || !cep || !logradouro || !numero || !bairro) {
-      alert('Por favor, preencha todos os campos obrigatórios e calcule o CEP.')
-      return
-    }
-
-    if (items.length === 0) {
-      alert('Seu carrinho está vazio.')
-      return
-    }
-
-    setSubmitting(true)
     try {
-      const { success, pedidoId, error } = await criarPedido({
-        nomeCliente: nome,
-        emailCliente: email,
-        telefone,
-        cep,
-        logradouro,
-        numero,
-        complemento,
-        bairro,
-        itens: items.map(item => ({
-          produtoId: item.id,
-          quantidade: item.quantidade,
-          preco: Number(item.preco)
-        })),
-        frete: frete || 0,
-        total: valorTotal + (frete || 0)
-      })
-
-      if (success && pedidoId) {
-        limparCarrinho()
-        window.location.href = `/confirmacao?pedidoId=${pedidoId}`
-      } else {
-        alert(error || 'Ocorreu um erro ao processar o seu pedido.')
-      }
-    } catch (err) {
-      console.error(err)
-      alert('Erro de conexão ao enviar o pedido. Tente novamente.')
-    } finally {
-      setSubmitting(false)
+      const draft = sessionStorage.getItem("madrinha:checkout");
+      const parsed = draft ? JSON.parse(draft) : {};
+      const restored = Object.fromEntries(
+        Object.keys(initial).map((key) => [
+          key,
+          typeof parsed[key] === "string" ? parsed[key] : "",
+        ]),
+      ) as unknown as Delivery;
+      setData({
+        ...restored,
+        cep:
+          restored.cep ||
+          formatCep(localStorage.getItem("@LojaMadrinha:cep") || ""),
+      });
+    } catch {
+      /* O formulário permanece disponível. */
     }
-  }
+  }, []);
+  useEffect(() => {
+    if (shipping.street || shipping.neighborhood)
+      setData((prev) => ({
+        ...prev,
+        logradouro: shipping.street,
+        bairro: shipping.neighborhood,
+      }));
+  }, [shipping.street, shipping.neighborhood]);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
+  useEffect(() => {
+    if (success) successRef.current?.focus();
+  }, [success]);
+  const update = (key: keyof Delivery, value: string) => {
+    setData((prev) => {
+      const next = {
+        ...prev,
+        [key]: value,
+        ...(key === "cep" ? { logradouro: "", bairro: "" } : {}),
+      };
+      try {
+        sessionStorage.setItem("madrinha:checkout", JSON.stringify(next));
+      } catch {
+        /* Opcional. */
+      }
+      return next;
+    });
+    setError("");
+  };
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (lock.current) return;
+    if (shipping.loading || shipping.frete === null || shipping.invalid) {
+      setError(
+        "Confira o CEP e aguarde o cálculo do frete antes de continuar.",
+      );
+      return;
+    }
+    if (!items.length) {
+      setError(
+        "Sua cesta está vazia. Escolha seus produtos antes de continuar.",
+      );
+      return;
+    }
+    lock.current = true;
+    setSubmitting(true);
+    setError("");
+    try {
+      const result = await criarPedido({
+        nomeCliente: data.nome,
+        emailCliente: data.email,
+        telefone: data.telefone,
+        cep: data.cep,
+        logradouro: data.logradouro,
+        numero: data.numero,
+        complemento: data.complemento,
+        bairro: data.bairro,
+        itens: items.map((p) => ({
+          produtoId: p.id,
+          quantidade: p.quantidade,
+          preco: p.preco,
+        })),
+        frete: shipping.frete,
+        total: valorTotal + shipping.frete,
+      });
+      if (!result.success || !result.pedidoId) {
+        setError(
+          result.error ||
+            "Não foi possível registrar o pedido. Sua cesta foi mantida. Tente novamente.",
+        );
+        return;
+      }
+      const message = [
+        "Olá! Gostaria de confirmar este pedido:",
+        "",
+        `Pedido: ${result.pedidoId}`,
+        `Cliente: ${data.nome}`,
+        "",
+        ...items.map(
+          (p) =>
+            `${p.quantidade} × ${p.nome} — ${money(p.preco * p.quantidade)}`,
+        ),
+        "",
+        `Subtotal: ${money(valorTotal)}`,
+        `Frete: ${money(shipping.frete)}`,
+        `Total: ${money(valorTotal + shipping.frete)}`,
+        "",
+        `Entrega: ${data.logradouro}, ${data.numero}${data.complemento ? ` — ${data.complemento}` : ""}, ${data.bairro}. CEP ${data.cep}`,
+      ].join("\n");
+      setSuccess({
+        id: result.pedidoId,
+        url: `${WHATSAPP_URL}?text=${encodeURIComponent(message)}`,
+      });
+      limparCarrinho();
+      try {
+        sessionStorage.removeItem("madrinha:checkout");
+      } catch {
+        /* Opcional. */
+      }
+    } catch {
+      setError(
+        "A conexão foi interrompida. Sua cesta foi mantida. Antes de tentar novamente, confirme com a loja se o pedido foi recebido.",
+      );
+    } finally {
+      setSubmitting(false);
+      lock.current = false;
+    }
+  };
+  if (success)
+    return (
+      <div className="container-pagina state-panel">
+        <div className="confirmation-icon">
+          <Icon name="check" />
+        </div>
+        <h1 ref={successRef} tabIndex={-1}>
+          Seu pedido está registrado.
+        </h1>
+        <p>
+          Pedido <strong>{success.id}</strong>. Agora, envie os detalhes para a
+          Madrinha no WhatsApp para combinar o pagamento e a entrega.
+        </p>
+        <div className="state-actions">
+          <a
+            href={success.url}
+            className="btn-primario"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Continuar no WhatsApp <Icon name="arrow" />
+          </a>
+          <Link
+            href={`/confirmacao?pedidoId=${encodeURIComponent(success.id)}`}
+            className="btn-secundario"
+          >
+            Ver meu pedido
+          </Link>
+        </div>
+        <p className="small-note">
+          O pedido ainda aguarda confirmação e pagamento. A mensagem só será
+          enviada quando você confirmar no WhatsApp.
+        </p>
+      </div>
+    );
+  if (!isLoaded)
+    return (
+      <div className="container-pagina state-panel" role="status">
+        <p>Preparando seu pedido…</p>
+      </div>
+    );
+  if (!items.length)
+    return (
+      <div className="container-pagina state-panel">
+        <Icon name="basket" />
+        <h1>Vamos começar pela sua cesta?</h1>
+        <p>Escolha suas bolachas para continuar com os dados de entrega.</p>
+        <Link className="btn-primario" href="/catalogo">
+          Conhecer as bolachas <Icon name="arrow" />
+        </Link>
+      </div>
+    );
+  const field = (
+    key: keyof Delivery,
+    label: string,
+    autoComplete: string,
+    type = "text",
+    required = true,
+    wide = false,
+  ) => (
+    <div className={`form-field ${wide ? "wide" : ""}`}>
+      <label htmlFor={`checkout-${key}`}>
+        {label}
+        {!required && <span> (opcional)</span>}
+      </label>
+      <input
+        id={`checkout-${key}`}
+        className="input-campo"
+        name={key}
+        autoComplete={autoComplete}
+        type={type}
+        value={data[key]}
+        required={required}
+        maxLength={key === "cep" ? 9 : 200}
+        inputMode={
+          key === "cep" ? "numeric" : type === "tel" ? "tel" : undefined
+        }
+        onChange={(e) =>
+          update(
+            key,
+            key === "cep" ? formatCep(e.target.value) : e.target.value,
+          )
+        }
+        aria-invalid={key === "cep" && shipping.invalid ? true : undefined}
+        aria-describedby={key === "cep" ? "checkout-cep-note" : undefined}
+      />
+    </div>
+  );
   return (
-    <form onSubmit={handleSubmit} className="container-pagina py-10">
-      <h1 className="font-display font-bold text-4xl text-biscoito-900 mb-2">
-        Finalizar Pedido 📦
-      </h1>
-      <p className="text-biscoito-500 mb-8">Preencha seus dados para concluir a compra</p>
-
-      {/* Indicador de progresso */}
-      <nav className="mb-10" aria-label="Etapas do checkout">
-        <ol className="flex items-center gap-0">
-          {[
-            { num: 1, label: 'Carrinho',  href: '/carrinho', ativo: false, concluido: true },
-            { num: 2, label: 'Dados',     href: '#',         ativo: true,  concluido: false },
-            { num: 3, label: 'Pagamento', href: '#',         ativo: false, concluido: false },
-          ].map((etapa, idx) => (
-            <li key={etapa.num} className="flex items-center">
-              <div className={`flex items-center gap-2 text-sm font-medium ${
-                etapa.ativo ? 'text-biscoito-600' :
-                etapa.concluido ? 'text-biscoito-400' : 'text-biscoito-300'
-              }`}>
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  etapa.ativo ? 'bg-biscoito-500 text-white' :
-                  etapa.concluido ? 'bg-biscoito-200 text-biscoito-600' : 'bg-biscoito-100 text-biscoito-300'
-                }`}>
-                  {etapa.concluido ? '✓' : etapa.num}
-                </span>
-                <span className="hidden sm:block">{etapa.label}</span>
-              </div>
-              {idx < 2 && (
-                <div className="w-12 sm:w-20 h-0.5 bg-biscoito-200 mx-2" aria-hidden="true" />
-              )}
-            </li>
-          ))}
-        </ol>
+    <div className="container-pagina commerce-page">
+      <header className="page-heading">
+        <h1>Quase à sua mesa.</h1>
+        <p>
+          Seus dados de entrega, com calma.
+          <br />
+          Os detalhes finais, em uma conversa.
+        </p>
+      </header>
+      <nav className="checkout-steps" aria-label="Etapas do pedido">
+        <Link href="/carrinho">1. Sua cesta</Link>
+        <span aria-current="step">2. Entrega</span>
+        <span>3. WhatsApp</span>
       </nav>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        {/* Formulário principal */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Dados pessoais */}
-          <section className="card p-6" aria-labelledby="titulo-dados-pessoais">
-            <h2 id="titulo-dados-pessoais" className="font-display font-semibold text-xl text-biscoito-900 mb-5">
-              Dados pessoais
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={submit} className="commerce-layout">
+        <div className="checkout-fields">
+          {error && (
+            <div
+              className="form-status"
+              role="alert"
+              tabIndex={-1}
+              ref={errorRef}
+            >
+              {error}
               <div>
-                <label htmlFor="input-nome" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  Nome completo <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input 
-                  id="input-nome" 
-                  type="text" 
-                  placeholder="Maria da Silva" 
-                  className="input-campo" 
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="input-email" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  E-mail <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input 
-                  id="input-email" 
-                  type="email" 
-                  placeholder="maria@email.com" 
-                  className="input-campo" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="input-telefone" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  WhatsApp/Telefone <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input 
-                  id="input-telefone" 
-                  type="tel" 
-                  placeholder="(41) 99999-9999" 
-                  className="input-campo" 
-                  value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                  required 
-                />
+                <Link className="text-link" href="/catalogo">
+                  Revisar catálogo <Icon name="arrow" />
+                </Link>
               </div>
             </div>
-          </section>
-
-          {/* Endereço de entrega */}
-          <section className="card p-6" aria-labelledby="titulo-endereco">
-            <h2 id="titulo-endereco" className="font-display font-semibold text-xl text-biscoito-900 mb-5">
-              Endereço de entrega
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-1">
-                <label htmlFor="input-cep-checkout" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  CEP <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <div className="flex gap-2 items-center">
-                  <input 
-                    id="input-cep-checkout" 
-                    type="text" 
-                    placeholder="00000-000" 
-                    maxLength={9} 
-                    className="input-campo" 
-                    value={cep}
-                    onChange={(e) => setCep(e.target.value)}
-                    required 
-                  />
-                  {loadingCep && <span className="text-xs text-biscoito-500">Buscando...</span>}
-                </div>
-                <p className="text-xs text-biscoito-400 mt-1">O frete será calculado automaticamente.</p>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="input-logradouro" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  Logradouro
-                </label>
-                <input 
-                  id="input-logradouro" 
-                  type="text" 
-                  placeholder="Rua das Bolachas" 
-                  className="input-campo bg-gray-50" 
-                  value={logradouro}
-                  readOnly 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="input-numero" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  Número <span className="text-red-500" aria-hidden="true">*</span>
-                </label>
-                <input 
-                  id="input-numero" 
-                  type="text" 
-                  placeholder="123" 
-                  className="input-campo" 
-                  value={numero}
-                  onChange={(e) => setNumero(e.target.value)}
-                  required 
-                />
-              </div>
-
-              <div>
-                <label htmlFor="input-complemento" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  Complemento
-                </label>
-                <input 
-                  id="input-complemento" 
-                  type="text" 
-                  placeholder="Apto 42" 
-                  className="input-campo" 
-                  value={complemento}
-                  onChange={(e) => setComplemento(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="input-bairro" className="block text-sm font-medium text-biscoito-700 mb-1.5">
-                  Bairro
-                </label>
-                <input 
-                  id="input-bairro" 
-                  type="text" 
-                  placeholder="Centro" 
-                  className="input-campo bg-gray-50" 
-                  value={bairro}
-                  readOnly 
-                />
-              </div>
+          )}
+          <section>
+            <h2>Quem vai receber?</h2>
+            <div className="form-grid">
+              {field("nome", "Nome completo", "name", "text", true, true)}
+              {field("email", "E-mail", "email", "email")}
+              {field("telefone", "WhatsApp / telefone", "tel", "tel")}
             </div>
           </section>
-
-          {/* Forma de pagamento */}
-          <section className="card p-6" aria-labelledby="titulo-pagamento">
-            <h2 id="titulo-pagamento" className="font-display font-semibold text-xl text-biscoito-900 mb-5">
-              Forma de pagamento
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { id: 'pix',    label: 'PIX',           emoji: '⚡', descricao: 'Aprovação instantânea' },
-                { id: 'cartao', label: 'Cartão de crédito', emoji: '💳', descricao: 'Em até 12x' },
-              ].map((metodo) => (
-                <label
-                  key={metodo.id}
-                  htmlFor={`pagamento-${metodo.id}`}
-                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-biscoito-200 hover:border-biscoito-400 cursor-pointer transition-all duration-200 has-[:checked]:border-biscoito-500 has-[:checked]:bg-biscoito-50"
+          <section>
+            <h2>Onde será a entrega?</h2>
+            <div className="form-grid">
+              {field("cep", "CEP", "postal-code")}
+              <div className="form-field">
+                <p
+                  id="checkout-cep-note"
+                  className={shipping.invalid ? "field-error" : "field-note"}
+                  role="status"
                 >
-                  <input
-                    type="radio"
-                    id={`pagamento-${metodo.id}`}
-                    name="metodo-pagamento"
-                    value={metodo.id}
-                    className="accent-biscoito-500"
-                    checked={metodoPagamento === metodo.id}
-                    onChange={() => setMetodoPagamento(metodo.id)}
-                  />
-                  <div>
-                    <p className="font-semibold text-biscoito-900">
-                      <span aria-hidden="true">{metodo.emoji} </span>{metodo.label}
-                    </p>
-                    <p className="text-xs text-biscoito-400">{metodo.descricao}</p>
-                  </div>
-                </label>
-              ))}
+                  {shipping.loading
+                    ? "Buscando seu endereço…"
+                    : shipping.message ||
+                      shipping.location ||
+                      "Informe oito números. Você pode ajustar o endereço abaixo."}
+                </p>
+              </div>
+              {field(
+                "logradouro",
+                "Rua / avenida",
+                "address-line1",
+                "text",
+                true,
+                true,
+              )}
+              {field("numero", "Número", "off")}
+              {field(
+                "complemento",
+                "Complemento",
+                "address-line2",
+                "text",
+                false,
+              )}
+              {field("bairro", "Bairro", "address-level3", "text", true, true)}
             </div>
           </section>
         </div>
-
-        {/* Resumo lateral */}
-        <aside aria-label="Resumo do pedido">
-          <div className="card p-6 sticky top-24">
-            <h2 className="font-display font-semibold text-xl text-biscoito-900 mb-5">
-              Resumo
-            </h2>
-
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-biscoito-500">
-                  {totalItens} {totalItens === 1 ? 'item' : 'itens'}
-                </dt>
-                <dd className="font-medium">{formatarPreco(valorTotal)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-biscoito-500">Frete</dt>
-                <dd className="font-medium">
-                  {frete !== null ? formatarPreco(frete) : '---'}
-                </dd>
-              </div>
-              <div className="border-t border-biscoito-100 pt-3 flex justify-between">
-                <dt className="font-bold text-biscoito-900 text-base">Total</dt>
-                <dd className="preco text-xl">
-                  {formatarPreco(valorTotal + (frete || 0))}
-                </dd>
-              </div>
-            </dl>
-
-            <button
-              id="btn-confirmar-pedido"
-              type="submit"
-              disabled={submitting}
-              className="btn-primario w-full mt-6 justify-center disabled:opacity-50"
-            >
-              {submitting ? 'Processando...' : 'Confirmar Pedido →'}
-            </button>
-
-            <p className="text-center text-xs text-biscoito-400 mt-3">
-              🔒 Dados protegidos pelo Mercado Pago
-            </p>
-
-            <Link href="/carrinho" className="block text-center text-sm text-biscoito-400 hover:text-biscoito-600 mt-3 transition-colors">
-              ← Voltar ao carrinho
-            </Link>
-          </div>
+        <aside className="order-summary">
+          <h2>Sua seleção</h2>
+          <ul className="summary-items">
+            {items.map((item) => (
+              <li key={item.id}>
+                <span>
+                  {item.quantidade} × {item.nome}
+                </span>
+                <span>{money(item.preco * item.quantidade)}</span>
+              </li>
+            ))}
+          </ul>
+          <dl>
+            <div>
+              <dt>Subtotal · {totalItens} itens</dt>
+              <dd>{money(valorTotal)}</dd>
+            </div>
+            <div>
+              <dt>Frete estimado</dt>
+              <dd>
+                {shipping.loading
+                  ? "Calculando…"
+                  : shipping.frete === null
+                    ? "Informe seu CEP"
+                    : money(shipping.frete)}
+              </dd>
+            </div>
+            <div className="summary-total">
+              <dt>
+                {shipping.frete === null ? "Subtotal sem frete" : "Total"}
+              </dt>
+              <dd>{money(valorTotal + (shipping.frete || 0))}</dd>
+            </div>
+          </dl>
+          <button
+            type="submit"
+            className="btn-primario"
+            disabled={submitting || shipping.loading || shipping.frete === null}
+            aria-busy={submitting}
+          >
+            {submitting ? "Registrando pedido…" : "Registrar meu pedido"}
+            <Icon name="arrow" />
+          </button>
+          <p className="order-note">
+            Depois, você continua no WhatsApp. O pagamento e a entrega são
+            combinados diretamente com a loja.
+          </p>
+          <Link className="text-link mt-4" href="/carrinho">
+            Revisar minha cesta
+          </Link>
         </aside>
-      </div>
-    </form>
-  )
+      </form>
+    </div>
+  );
 }

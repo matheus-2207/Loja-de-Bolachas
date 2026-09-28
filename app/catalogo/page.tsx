@@ -1,87 +1,114 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { CardProduto } from '@/components/card-produto'
-import { prisma } from '@/lib/prisma'
-
+import type { Metadata } from "next";
+import Link from "next/link";
+import { CardProduto } from "@/components/card-produto";
+import { CatalogEmpty } from "@/components/catalog-empty";
+import { getCatalog } from "@/lib/catalog";
+import { Icon } from "@/components/icon";
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: 'Catálogo de Bolachas',
-  description: 'Veja todos os nossos sabores de bolachas artesanais. Manteiga, chocolate, limão e muito mais!',
-}
-
+  title: "Nossas bolachas",
+  description:
+    "Descubra os sabores da Madrinha e encontre sua próxima pausa favorita.",
+};
 export default async function PaginaCatalogo({
   searchParams,
 }: {
-  searchParams: { categoria?: string }
+  searchParams: { categoria?: string; busca?: string };
 }) {
-  // Categorias disponíveis - podemos buscar dinamicamente depois
-  const categorias = ['Todos', 'Clássicas', 'Chocolate', 'Frutas', 'Especiais', 'Caixas']
-  
-  // Buscar produtos do banco
-  const todosProdutos = await prisma.produto.findMany({
-    where: { 
-      ativo: true,
-      ...(searchParams.categoria && searchParams.categoria !== 'Todos' ? { categoria: searchParams.categoria } : {})
-    },
-    orderBy: { createdAt: 'desc' }
-  })
-
+  const { products, unavailable } = await getCatalog();
+  const categories = Array.from(
+    new Set(products.map((p) => p.categoria).filter((c): c is string => !!c)),
+  );
+  const category = searchParams.categoria || "";
+  const search = searchParams.busca?.trim() || "";
+  const filtered = products.filter(
+    (p) =>
+      (!category || p.categoria === category) &&
+      (!search ||
+        `${p.nome} ${p.descricao || ""}`
+          .toLocaleLowerCase("pt-BR")
+          .includes(search.toLocaleLowerCase("pt-BR"))),
+  );
   return (
-    <div className="container-pagina py-10">
-
-      {/* Cabeçalho da página */}
-      <header className="mb-8">
-        <h1 className="font-display font-bold text-4xl text-biscoito-900 mb-2">
-          Catálogo de Bolachas 🍪
+    <div className="container-pagina catalog-page">
+      <header className="page-heading">
+        <h1>
+          Nossas bolachas.
+          <br />
+          <em>Seu próximo ritual.</em>
         </h1>
-        <p className="text-biscoito-500 text-lg">
-          {todosProdutos.length} produtos disponíveis
+        <p>
+          O cuidado artesanal em cada detalhe.
+          <br />
+          Escolha o que combina com o seu momento.
         </p>
       </header>
-
-      {/* Filtros de categoria */}
-      <nav className="mb-8" aria-label="Filtrar por categoria">
-        <div className="flex flex-wrap gap-2">
-          {categorias.map((cat) => {
-            const isActive = searchParams.categoria === cat || (!searchParams.categoria && cat === 'Todos')
-            return (
-              <Link
-                href={cat === 'Todos' ? '/catalogo' : `/catalogo?categoria=${encodeURIComponent(cat)}`}
-                key={cat}
-                id={`filtro-${cat.toLowerCase()}`}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-biscoito-500 text-white shadow-md'
-                    : 'bg-white text-biscoito-600 border border-biscoito-200 hover:bg-biscoito-50'
-                }`}
-                aria-pressed={isActive}
-              >
-                {cat}
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
-
-      {/* Grid de produtos */}
-      <section aria-label="Lista de produtos">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {todosProdutos.map((produto) => (
-            <CardProduto 
-              key={produto.id} 
-              produto={{ 
-                ...produto, 
-                preco: produto.preco.toNumber(),
-                estoque: produto.estoque 
-              }} 
-            />
+      <div className="catalog-toolbar">
+        <nav aria-label="Categorias" className="category-nav">
+          <Link
+            href={
+              search
+                ? `/catalogo?busca=${encodeURIComponent(search)}`
+                : "/catalogo"
+            }
+            aria-current={!category ? "page" : undefined}
+          >
+            Todas
+          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat}
+              href={`/catalogo?categoria=${encodeURIComponent(cat)}${search ? `&busca=${encodeURIComponent(search)}` : ""}`}
+              aria-current={category === cat ? "page" : undefined}
+            >
+              {cat}
+            </Link>
           ))}
-        </div>
-      </section>
-
-      {/* Informação de pedido mínimo */}
-      <aside className="mt-10 p-4 bg-creme-100 border border-creme-300 rounded-xl text-sm text-biscoito-700">
-        <strong>💡 Dica:</strong> Faça seu pedido pelo WhatsApp para encomendas personalizadas e bolachas decoradas especiais!
+        </nav>
+        <form role="search" className="catalog-search">
+          <label htmlFor="busca" className="sr-only">
+            Buscar bolachas
+          </label>
+          {category && (
+            <input type="hidden" name="categoria" value={category} />
+          )}
+          <input
+            id="busca"
+            name="busca"
+            type="search"
+            defaultValue={search}
+            placeholder="Encontre seu sabor"
+          />
+          <button type="submit" className="icon-button" aria-label="Buscar">
+            <Icon name="arrow" />
+          </button>
+        </form>
+      </div>
+      <div className="catalog-count" aria-live="polite">
+        {unavailable
+          ? "Catálogo temporariamente indisponível"
+          : `${filtered.length} ${filtered.length === 1 ? "produto" : "produtos"}`}
+        {search && <Link href="/catalogo">Limpar busca</Link>}
+      </div>
+      {filtered.length ? (
+        <section className="product-grid" aria-label="Produtos">
+          {filtered.map((p) => (
+            <CardProduto key={p.id} produto={p} />
+          ))}
+        </section>
+      ) : (
+        <CatalogEmpty
+          unavailable={unavailable}
+          filtered={!!(category || search)}
+        />
+      )}
+      <aside className="catalog-help">
+        <Icon name="gift" />
+        <p>Uma seleção com a sua cara.</p>
+        <Link className="text-link" href="/monte-sua-caixa">
+          Junte seus favoritos <Icon name="arrow" />
+        </Link>
       </aside>
     </div>
-  )
+  );
 }

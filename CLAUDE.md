@@ -8,7 +8,7 @@ Dona do negócio não é técnica — o admin precisa ser simples.
 - Next.js 14 (App Router)
 - Tailwind CSS
 - Prisma + PostgreSQL
-- Mercado Pago SDK (PIX + cartão)
+- Finalização de pedidos pelo WhatsApp
 - Cloudinary (imagens)
 - Deploy na Vercel
 
@@ -28,4 +28,4 @@ Dona do negócio não é técnica — o admin precisa ser simples.
 ## O que NÃO fazer
 - Não usar nenhuma biblioteca de UI pesada (MUI, Chakra)
 - Não criar lógica complexa no admin — manter simples
-- Não armazenar dados de cartão — tudo via Mercado Pago
+- Combinar os detalhes de pagamento diretamente pelo WhatsApp
