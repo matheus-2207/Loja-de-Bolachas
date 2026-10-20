@@ -2,8 +2,8 @@ name: Registros diarios sem alterar o codigo
 
 on:
   schedule:
-    # 15h17 UTC = 12h17 no horario de Brasilia.
-    - cron: '17 15 * * *'
+    # 03h01 UTC = 00h01 no horario de Brasilia.
+    - cron: '1 3 * * *'
   workflow_dispatch:
 
 # Token temporario do GitHub, limitado ao conteudo deste repositorio.
