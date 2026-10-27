@@ -69,13 +69,13 @@ jobs:
                       parte.isdigit() for parte in partes
                   ):
                       limite = int(partes[1])
-                      if 8 <= limite <= 25:
+                      if 4 <= limite <= 26:
                           limites_existentes.add(limite)
 
           quantidade = (
               max(limites_existentes)
               if limites_existentes
-              else random.randint(8, 25)
+              else random.randint(4, 26)
           )
 
           criados = 0
